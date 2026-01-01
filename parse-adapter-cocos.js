@@ -8,16 +8,21 @@ class ParseGameAdapter {
   constructor(config = {}) {
     // قراءة المعاملات من الـ URL
     const urlParams = new URLSearchParams(window.location.search);
-    
+
     this.config = {
       appId: config.appId || urlParams.get('appId') || 'spp111424242ssdsd',
-      serverURL: config.serverURL || urlParams.get('serverURL') || 'https://parse410.onrender.com/parse',
-      sessionToken: config.sessionToken || urlParams.get('sessionToken') || null,
+      serverURL:
+        config.serverURL ||
+        urlParams.get('serverURL') ||
+        'https://parse410.onrender.com/parse',
+      sessionToken:
+        config.sessionToken || urlParams.get('sessionToken') || null,
       ...config
     };
 
     this.initialized = false;
     this.user = null;
+
     this.status = {
       parseLoaded: false,
       initialized: false,
@@ -27,61 +32,57 @@ class ParseGameAdapter {
         serverURL: this.config.serverURL,
         sessionToken: this.config.sessionToken ? 'present' : 'missing'
       },
-      errors: [],
+      errors: []
     };
 
-    console.log('🎮 [Game1 Adapter] تم إنشاء الـ Adapter');
+    console.log('🎮 [Game1 Adapter] Adapter created');
     this._init();
   }
 
-  /**
-   * تهيئة الـ Adapter
-   */
+  /* ===============================
+     Adapter Initialization
+     =============================== */
   async _init() {
     try {
-      console.log('🔄 [Game1 Adapter] بدء التهيئة...');
+      console.log('🔄 [Game1 Adapter] Initializing...');
 
-      // الانتظار حتى يكون Parse متاحاً
       await this._waitForParse();
-
-      // تهيئة Parse
       this._initializeParse();
 
-      // المصادقة إذا كان sessionToken موجوداً
-      if (this.config.sessionToken) {
-        await this._authenticate();
-      } else {
-        console.warn('⚠️ [Game1 Adapter] sessionToken غير موجود في الـ URL');
+      if (!this.config.sessionToken) {
+        console.warn('⚠️ sessionToken missing');
         this.status.errors.push('sessionToken missing');
+        return;
       }
+
+      await this._authenticate();
 
       this.initialized = true;
       this.status.initialized = true;
 
-      console.log('✅ [Game1 Adapter] تم التهيئة بنجاح');
+      console.log('✅ [Game1 Adapter] Initialization completed');
       this._logStatus();
 
-      // تنفيذ callback
       if (typeof window.onParseGameAdapterReady === 'function') {
         window.onParseGameAdapterReady(this);
       }
     } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في التهيئة:', e);
+      console.error('❌ [Game1 Adapter] Init error:', e);
       this.status.errors.push(e.message);
     }
   }
 
-  /**
-   * الانتظار حتى يكون Parse متاحاً
-   */
+  /* ===============================
+     Wait for Parse SDK
+     =============================== */
   async _waitForParse() {
     return new Promise((resolve, reject) => {
       let attempts = 0;
-      const maxAttempts = 50; // 5 ثوانٍ (50 × 100ms)
+      const maxAttempts = 50;
 
       const check = () => {
         if (typeof Parse !== 'undefined') {
-          console.log('✅ [Game1 Adapter] Parse متاح');
+          console.log('✅ [Game1 Adapter] Parse SDK loaded');
           this.status.parseLoaded = true;
           resolve();
           return;
@@ -91,7 +92,7 @@ class ParseGameAdapter {
         if (attempts < maxAttempts) {
           setTimeout(check, 100);
         } else {
-          reject(new Error('Parse failed to load'));
+          reject(new Error('Parse SDK failed to load'));
         }
       };
 
@@ -99,237 +100,128 @@ class ParseGameAdapter {
     });
   }
 
-  /**
-   * تهيئة Parse
-   */
+  /* ===============================
+     Parse Initialization
+     =============================== */
   _initializeParse() {
+    console.log('🔧 [Game1 Adapter] Initializing Parse');
+    console.log('  📱 App ID:', this.config.appId);
+    console.log('  🔗 Server URL:', this.config.serverURL);
+
+    Parse.initialize(this.config.appId);
+    Parse.serverURL = this.config.serverURL;
+
+    console.log('✅ [Game1 Adapter] Parse initialized');
+  }
+
+  /* ===============================
+     Authentication (FIXED)
+     =============================== */
+  async _authenticate() {
+    console.log('🔐 [Game1 Adapter] Authenticating with sessionToken');
+
     try {
-      const { appId, serverURL } = this.config;
+      const user = await Parse.User.become(this.config.sessionToken);
 
-      console.log('🔧 [Game1 Adapter] تهيئة Parse...');
-      console.log('  📱 App ID:', appId);
-      console.log('  🔗 Server URL:', serverURL);
+      this.user = user;
+      this.status.authenticated = true;
 
-      // تهيئة Parse
-      Parse.initialize(appId);
-      Parse.serverURL = serverURL;
-
-      console.log('✅ [Game1 Adapter] تم تهيئة Parse بنجاح');
+      console.log('✅ [Game1 Adapter] Authenticated successfully');
+      console.log('  👤 User ID:', user.id);
+      console.log('  📝 Username:', user.get('username'));
     } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في تهيئة Parse:', e);
+      console.error('❌ Authentication failed:', e);
+      this.status.errors.push('authentication failed');
       throw e;
     }
   }
 
-  /**
-   * المصادقة باستخدام sessionToken
-   */
-  async _authenticate() {
-    try {
-      const { sessionToken } = this.config;
-
-      if (!sessionToken) {
-        console.warn('⚠️ [Game1 Adapter] sessionToken غير موجود');
-        return;
-      }
-
-      console.log('🔐 [Game1 Adapter] محاولة المصادقة...');
-      console.log('  🔑 Token length:', sessionToken.length);
-
-      // طريقة 1: استخدام Parse.User.become
-      try {
-        const user = await Parse.User.become(sessionToken);
-        this.user = user;
-        this.status.authenticated = true;
-        console.log('✅ [Game1 Adapter] تم المصادقة بنجاح (Parse.User.become)');
-        console.log('  👤 User ID:', user.id);
-        console.log('  📝 Username:', user.get('username'));
-        return;
-      } catch (e1) {
-        console.warn('⚠️ [Game1 Adapter] Parse.User.become فشل:', e1.message);
-      }
-
-      // طريقة 2: تعيين sessionToken مباشرة
-      try {
-        Parse.User.current().set('sessionToken', sessionToken);
-        this.status.authenticated = true;
-        console.log('✅ [Game1 Adapter] تم تعيين sessionToken مباشرة');
-        return;
-      } catch (e2) {
-        console.warn('⚠️ [Game1 Adapter] تعيين sessionToken فشل:', e2.message);
-      }
-
-      // طريقة 3: جلب المستخدم الحالي
-      try {
-        const user = await Parse.Cloud.run('game_sc_profile', {});
-        this.user = user;
-        this.status.authenticated = true;
-        console.log('✅ [Game1 Adapter] تم جلب بيانات المستخدم');
-        return;
-      } catch (e3) {
-        console.error('❌ [Game1 Adapter] جميع طرق المصادقة فشلت:', e3);
-        throw e3;
-      }
-    } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في المصادقة:', e);
-      this.status.errors.push(e.message);
-    }
-  }
-
-  /**
-   * استدعاء دالة Cloud
-   */
+  /* ===============================
+     Cloud Function Wrapper
+     =============================== */
   async callCloudFunction(functionName, params = {}) {
     try {
-      console.log(`📞 [Game1 Adapter] استدعاء ${functionName}...`);
-
-      // إضافة sessionToken إلى رؤوس الطلب
-      const headers = {};
-      if (this.config.sessionToken) {
-        headers['X-Parse-Session-Token'] = this.config.sessionToken;
+      if (!this.status.authenticated) {
+        throw new Error('User not authenticated');
       }
 
+      console.log(`📞 [Game1 Adapter] Calling ${functionName}`);
       const result = await Parse.Cloud.run(functionName, params);
 
-      console.log(`✅ [Game1 Adapter] ${functionName} نجح:`, result);
+      console.log(`✅ [Game1 Adapter] ${functionName} success`, result);
       return result;
     } catch (e) {
-      console.error(`❌ [Game1 Adapter] خطأ في ${functionName}:`, e);
+      console.error(`❌ [Game1 Adapter] ${functionName} failed`, e);
       throw e;
     }
   }
 
-  /**
-   * جلب معلومات اللعبة
-   */
+  /* ===============================
+     Game APIs
+     =============================== */
   async getGameInfo() {
-    try {
-      console.log('🎮 [Game1 Adapter] جلب معلومات اللعبة...');
-      const result = await this.callCloudFunction('game_sc_information');
-      return result;
-    } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في جلب معلومات اللعبة:', e);
-      throw e;
-    }
+    return this.callCloudFunction('game_sc_information');
   }
 
-  /**
-   * وضع رهان
-   */
   async placeBet(gameId, choice, amount) {
-    try {
-      console.log(`💰 [Game1 Adapter] وضع رهان: gameId=${gameId}, choice=${choice}, amount=${amount}`);
-      const result = await this.callCloudFunction('game_bet', {
-        gameId: gameId,
-        choice: choice,
-        amount: amount
-      });
-      return result;
-    } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في وضع الرهان:', e);
-      throw e;
-    }
+    return this.callCloudFunction('game_bet', {
+      gameId,
+      choice,
+      amount
+    });
   }
 
-  /**
-   * جلب سجل الرهانات
-   */
   async getBetHistory() {
-    try {
-      console.log('📋 [Game1 Adapter] جلب سجل الرهانات...');
-      const result = await this.callCloudFunction('game_sc_history');
-      return result;
-    } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في جلب سجل الرهانات:', e);
-      throw e;
-    }
+    return this.callCloudFunction('game_sc_history');
   }
 
-  /**
-   * جلب ترتيب اللاعبين
-   */
   async getLeaderboard() {
-    try {
-      console.log('🏆 [Game1 Adapter] جلب ترتيب اللاعبين...');
-      const result = await this.callCloudFunction('game_sc_ranking');
-      return result;
-    } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في جلب الترتيب:', e);
-      throw e;
-    }
+    return this.callCloudFunction('game_sc_ranking');
   }
 
-  /**
-   * جلب ملف تعريف المستخدم
-   */
   async getUserProfile() {
-    try {
-      console.log('👤 [Game1 Adapter] جلب ملف تعريف المستخدم...');
-      const result = await this.callCloudFunction('game_sc_profile');
-      return result;
-    } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في جلب الملف الشخصي:', e);
-      throw e;
-    }
+    return this.callCloudFunction('game_sc_profile');
   }
 
-  /**
-   * تحديث الرصيد
-   */
   async updateBalance(amount) {
-    try {
-      console.log(`💵 [Game1 Adapter] تحديث الرصيد: ${amount}`);
-      const result = await this.callCloudFunction('updateBalance', {
-        amount: amount
-      });
-      return result;
-    } catch (e) {
-      console.error('❌ [Game1 Adapter] خطأ في تحديث الرصيد:', e);
-      throw e;
-    }
+    return this.callCloudFunction('updateBalance', { amount });
   }
 
-  /**
-   * الحصول على حالة الـ Adapter
-   */
+  /* ===============================
+     Status Helpers
+     =============================== */
   getStatus() {
     return {
       ...this.status,
-      initialized: this.initialized,
-      authenticated: this.status.authenticated,
-      user: this.user ? {
-        objectId: this.user.id,
-        username: this.user.get ? this.user.get('username') : 'Unknown'
-      } : null
+      user: this.user
+        ? {
+            objectId: this.user.id,
+            username: this.user.get('username')
+          }
+        : null
     };
   }
 
-  /**
-   * طباعة الحالة
-   */
   _logStatus() {
-    console.log('📊 [Game1 Adapter] الحالة:');
-    console.log('  ✅ Initialized:', this.status.initialized);
-    console.log('  ✅ Parse Loaded:', this.status.parseLoaded);
-    console.log('  ✅ Authenticated:', this.status.authenticated);
-    console.log('  📋 URL Params:', this.status.urlParams);
-    console.log('  ⚠️ Errors:', this.status.errors.length);
+    console.log('📊 [Game1 Adapter] Status');
+    console.log('  Initialized:', this.status.initialized);
+    console.log('  Parse Loaded:', this.status.parseLoaded);
+    console.log('  Authenticated:', this.status.authenticated);
+    console.log('  URL Params:', this.status.urlParams);
+    console.log('  Errors:', this.status.errors);
   }
 }
 
-// تصدير الـ Adapter
+/* ===============================
+   Global Exports
+   =============================== */
 window.ParseGameAdapter = ParseGameAdapter;
-
-// إنشاء instance عام
 window.parseGameAdapter = null;
 
-/**
- * دالة مساعدة لتهيئة الـ Adapter
- */
-window.initParseGameAdapter = function(config) {
-  console.log('🚀 [Game1] بدء تهيئة الـ Adapter...');
+window.initParseGameAdapter = function (config) {
+  console.log('🚀 [Game1] Initializing adapter');
   window.parseGameAdapter = new ParseGameAdapter(config);
   return window.parseGameAdapter;
 };
 
-console.log('✅ [Game1] تم تحميل parse-adapter-game1-fixed.js');
+console.log('✅ parse-adapter-cocos.js fully loaded');
