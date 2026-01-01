@@ -1,15 +1,18 @@
 /**
  * Parse Adapter for Soccer/Dice Game (Game 1)
  * تهيئة Parse SDK والاتصال بـ Parse Server
- * بنفس طريقة اللعبة الثانية
+ * مع قراءة sessionToken من الـ URL
  */
 
 class ParseGameAdapter {
   constructor(config = {}) {
+    // قراءة المعاملات من الـ URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
     this.config = {
-      appId: config.appId || 'spp111424242ssdsd',
-      serverURL: config.serverURL || 'https://parse410.onrender.com/parse',
-      sessionToken: config.sessionToken || null,
+      appId: config.appId || urlParams.get('appId') || 'spp111424242ssdsd',
+      serverURL: config.serverURL || urlParams.get('serverURL') || 'https://parse410.onrender.com/parse',
+      sessionToken: config.sessionToken || urlParams.get('sessionToken') || null,
       ...config
     };
 
@@ -19,6 +22,11 @@ class ParseGameAdapter {
       parseLoaded: false,
       initialized: false,
       authenticated: false,
+      urlParams: {
+        appId: this.config.appId,
+        serverURL: this.config.serverURL,
+        sessionToken: this.config.sessionToken ? 'present' : 'missing'
+      },
       errors: [],
     };
 
@@ -42,6 +50,9 @@ class ParseGameAdapter {
       // المصادقة إذا كان sessionToken موجوداً
       if (this.config.sessionToken) {
         await this._authenticate();
+      } else {
+        console.warn('⚠️ [Game1 Adapter] sessionToken غير موجود في الـ URL');
+        this.status.errors.push('sessionToken missing');
       }
 
       this.initialized = true;
@@ -123,18 +134,41 @@ class ParseGameAdapter {
       }
 
       console.log('🔐 [Game1 Adapter] محاولة المصادقة...');
+      console.log('  🔑 Token length:', sessionToken.length);
 
-      // محاولة الحصول على المستخدم الحالي
-      const user = await Parse.Cloud.run('game_sc_profile', {
-        sessionToken: sessionToken
-      });
-
-      if (user) {
+      // طريقة 1: استخدام Parse.User.become
+      try {
+        const user = await Parse.User.become(sessionToken);
         this.user = user;
         this.status.authenticated = true;
-        console.log('✅ [Game1 Adapter] تم المصادقة بنجاح');
-        console.log('  👤 User ID:', user.objectId);
-        console.log('  📝 Username:', user.username);
+        console.log('✅ [Game1 Adapter] تم المصادقة بنجاح (Parse.User.become)');
+        console.log('  👤 User ID:', user.id);
+        console.log('  📝 Username:', user.get('username'));
+        return;
+      } catch (e1) {
+        console.warn('⚠️ [Game1 Adapter] Parse.User.become فشل:', e1.message);
+      }
+
+      // طريقة 2: تعيين sessionToken مباشرة
+      try {
+        Parse.User.current().set('sessionToken', sessionToken);
+        this.status.authenticated = true;
+        console.log('✅ [Game1 Adapter] تم تعيين sessionToken مباشرة');
+        return;
+      } catch (e2) {
+        console.warn('⚠️ [Game1 Adapter] تعيين sessionToken فشل:', e2.message);
+      }
+
+      // طريقة 3: جلب المستخدم الحالي
+      try {
+        const user = await Parse.Cloud.run('game_sc_profile', {});
+        this.user = user;
+        this.status.authenticated = true;
+        console.log('✅ [Game1 Adapter] تم جلب بيانات المستخدم');
+        return;
+      } catch (e3) {
+        console.error('❌ [Game1 Adapter] جميع طرق المصادقة فشلت:', e3);
+        throw e3;
       }
     } catch (e) {
       console.error('❌ [Game1 Adapter] خطأ في المصادقة:', e);
@@ -149,9 +183,10 @@ class ParseGameAdapter {
     try {
       console.log(`📞 [Game1 Adapter] استدعاء ${functionName}...`);
 
-      // إضافة sessionToken إلى المعاملات
+      // إضافة sessionToken إلى رؤوس الطلب
+      const headers = {};
       if (this.config.sessionToken) {
-        params.sessionToken = this.config.sessionToken;
+        headers['X-Parse-Session-Token'] = this.config.sessionToken;
       }
 
       const result = await Parse.Cloud.run(functionName, params);
@@ -263,9 +298,8 @@ class ParseGameAdapter {
       initialized: this.initialized,
       authenticated: this.status.authenticated,
       user: this.user ? {
-        objectId: this.user.objectId,
-        username: this.user.username,
-        email: this.user.email
+        objectId: this.user.id,
+        username: this.user.get ? this.user.get('username') : 'Unknown'
       } : null
     };
   }
@@ -278,6 +312,7 @@ class ParseGameAdapter {
     console.log('  ✅ Initialized:', this.status.initialized);
     console.log('  ✅ Parse Loaded:', this.status.parseLoaded);
     console.log('  ✅ Authenticated:', this.status.authenticated);
+    console.log('  📋 URL Params:', this.status.urlParams);
     console.log('  ⚠️ Errors:', this.status.errors.length);
   }
 }
@@ -297,4 +332,4 @@ window.initParseGameAdapter = function(config) {
   return window.parseGameAdapter;
 };
 
-console.log('✅ [Game1] تم تحميل parse-adapter-game1.js');
+console.log('✅ [Game1] تم تحميل parse-adapter-game1-fixed.js');
