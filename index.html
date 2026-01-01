@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <title>Cocos Creator Game with Parse</title>
+
+  <!--http://www.html5rocks.com/en/mobile/mobifying/-->
+  <meta name="viewport"
+        content="width=device-width,user-scalable=no,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover"/>
+
+  <!--https://developer.apple.com/library/safari/documentation/AppleApplications/Reference/SafariHTMLRef/Articles/MetaTags.html-->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- force webkit on 360 -->
+  <meta name="renderer" content="webkit"/>
+  <meta name="force-rendering" content="webkit"/>
+  <!-- force edge on IE -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <meta name="msapplication-tap-highlight" content="no">
+
+  <!-- force full screen on some browser -->
+  <meta name="full-screen" content="yes"/>
+  <meta name="x5-fullscreen" content="true"/>
+  <meta name="360-fullscreen" content="true"/>
+  
+  <!-- force screen orientation on some browser -->
+  <meta name="screen-orientation" content="portrait"/>
+  <meta name="x5-orientation" content="portrait">
+
+  <!--fix fireball/issues/3568 -->
+  <!--<meta name="browsermode" content="application">-->
+  <meta name="x5-page-mode" content="app">
+
+  <!--<link rel="apple-touch-icon" href=".png" />-->
+  <!--<link rel="apple-touch-icon-precomposed" href=".png" />-->
+  <style>
+    #splash {
+      display: none;
+    }
+    
+    #LOADING {
+      top: 0px;
+      left: 0px;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      background-color: rgba(0, 0, 0, 0.618);
+    }
+
+    #RING {
+      top: 50%;
+      left: 50%;
+      width: 45px;
+      height: 45px;
+      border: 2px solid #FFFFFF;
+      position: relative;
+      border-top-color: transparent;
+      border-radius: 100%;
+      transform: translate(-50%, -50%);
+      animation: circle 0.75s infinite linear;
+    }
+
+    @keyframes circle {
+      0% {
+        transform: translate(-50%, -50%) rotate(0);
+      }
+      100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+      }
+    }
+  </style>
+
+  <link rel="stylesheet" type="text/css" href="style-mobile.5b777.css"/>
+  <link rel="icon" href="favicon.4c744.ico"/>
+</head>
+<body>
+  <canvas id="GameCanvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
+  <div id="splash">
+    <div class="progress-bar stripes">
+      <span style="width: 0%"></span>
+    </div>
+  </div>
+  <div id="LOADING"><div id="RING"></div></div>
+
+<!-- =================== Parse SDK =================== -->
+<script src="https://cdn.jsdelivr.net/npm/parse@latest/dist/parse.min.js"></script>
+
+<!-- =================== Game Settings =================== -->
+<script src="src/settings.8c7c5.js" charset="utf-8"></script>
+
+<!-- =================== Game Bootstrap =================== -->
+<script src="main.b8da4.js" charset="utf-8"></script>
+
+<!-- =================== Parse Adapter =================== -->
+<script src="parse-adapter-cocos.js" charset="utf-8"></script>
+
+<!-- =================== Game API =================== -->
+<script src="game-api-cocos.js" charset="utf-8"></script>
+
+<!-- =================== Game Initialization =================== -->
+<script type="text/javascript">
+(function () {
+    console.log('🎮 [Game] بدء تهيئة اللعبة...');
+
+    // إعدادات Parse
+    const parseConfig = {
+      appId: 'spp111424242ssdsd',
+      serverURL: 'https://parse410.onrender.com/parse',
+      sessionToken: window.sessionToken || null // من الـ URL أو التطبيق
+    };
+
+    console.log('📋 [Game] Parse Config:', {
+      appId: parseConfig.appId,
+      serverURL: parseConfig.serverURL,
+      hasSessionToken: !!parseConfig.sessionToken
+    });
+
+    // تهيئة Parse Adapter
+    window.onParseGameAdapterReady = function(adapter) {
+      console.log('✅ [Game] Parse Adapter Ready');
+      
+      // تهيئة Game API
+      window.initGameAPI(adapter);
+      
+      // تهيئة اللعبة
+      initializeGame();
+    };
+
+    // بدء تحميل Cocos Creator
+    var debug = window._CCSettings.debug;
+
+    function loadScript (moduleName, cb) {
+      function scriptLoaded () {
+          document.body.removeChild(domScript);
+          domScript.removeEventListener('load', scriptLoaded, false);
+          cb && cb();
+      };
+      var domScript = document.createElement('script');
+      domScript.async = true;
+      domScript.src = moduleName;
+      domScript.addEventListener('load', scriptLoaded, false);
+      document.body.appendChild(domScript);
+    }
+
+    // تهيئة Parse Adapter
+    setTimeout(() => {
+      console.log('🔧 [Game] Initializing Parse Adapter...');
+      window.initParseGameAdapter(parseConfig);
+    }, 500);
+
+    // تحميل Cocos Creator
+    loadScript(debug ? 'cocos2d-js.js' : 'cocos2d-js-min.33c54.js', function () {
+      if (CC_PHYSICS_BUILTIN || CC_PHYSICS_CANNON) {
+        loadScript(debug ? 'physics.js' : 'physics-min.js', window.boot);
+      }
+      else {
+        window.boot();
+      }
+    });
+
+    // دالة تهيئة اللعبة
+    window.initializeGame = async function() {
+      try {
+        console.log('🎮 [Game] Initializing game...');
+
+        // الانتظار حتى يكون gameAPI جاهزاً
+        let attempts = 0;
+        while (!window.gameAPI && attempts < 50) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          attempts++;
+        }
+
+        if (!window.gameAPI) {
+          console.error('❌ [Game] GameAPI not initialized');
+          return;
+        }
+
+        // تهيئة اللعبة
+        const gameState = await window.gameAPI.initialize();
+        console.log('✅ [Game] Game initialized successfully');
+        console.log('📊 [Game] Game State:', gameState);
+
+        // إرسال معلومات اللعبة إلى Cocos Creator
+        if (window.cc && window.cc.director) {
+          // يمكن إرسال البيانات إلى اللعبة هنا
+          console.log('✅ [Game] Ready to send data to Cocos Creator');
+        }
+      } catch (e) {
+        console.error('❌ [Game] Error initializing game:', e);
+      }
+    };
+
+    // open web debugger console
+    if (typeof VConsole !== 'undefined') {
+        window.vConsole = new VConsole();
+    }
+})();
+</script>
+</body>
+</html>
