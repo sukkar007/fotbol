@@ -2,11 +2,77 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Cocos Creator Game with Parse</title>
-  <!-- جميع meta tags الموجودة -->
+
+  <title>dice</title>
+
+  <!--http://www.html5rocks.com/en/mobile/mobifying/-->
+  <meta name="viewport"
+        content="width=device-width,user-scalable=no,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover"/>
+
+  <!--https://developer.apple.com/library/safari/documentation/AppleApplications/Reference/SafariHTMLRef/Articles/MetaTags.html-->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- force webkit on 360 -->
+  <meta name="renderer" content="webkit"/>
+  <meta name="force-rendering" content="webkit"/>
+  <!-- force edge on IE -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <meta name="msapplication-tap-highlight" content="no">
+
+  <!-- force full screen on some browser -->
+  <meta name="full-screen" content="yes"/>
+  <meta name="x5-fullscreen" content="true"/>
+  <meta name="360-fullscreen" content="true"/>
+  
+  <!-- force screen orientation on some browser -->
+  <meta name="screen-orientation" content="portrait"/>
+  <meta name="x5-orientation" content="portrait">
+
+  <!--fix fireball/issues/3568 -->
+  <!--<meta name="browsermode" content="application">-->
+  <meta name="x5-page-mode" content="app">
+
+  <!--<link rel="apple-touch-icon" href=".png" />-->
+  <!--<link rel="apple-touch-icon-precomposed" href=".png" />-->
   <style>
-    /* CSS موجود */
+    #splash {
+      display: none;
+    }
+    
+    #LOADING {
+      top: 0px;
+      left: 0px;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      background-color: rgba(0, 0, 0, 0.618);
+    }
+
+    #RING {
+      top: 50%;
+      left: 50%;
+      width: 45px;
+      height: 45px;
+      border: 2px solid #FFFFFF;
+      position: relative;
+      border-top-color: transparent;
+      border-radius: 100%;
+      transform: translate(-50%, -50%);
+      animation: circle 0.75s infinite linear;
+    }
+
+    @keyframes circle {
+      0% {
+        transform: translate(-50%, -50%) rotate(0);
+      }
+      100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+      }
+    }
   </style>
+
   <link rel="stylesheet" type="text/css" href="style-mobile.5b777.css"/>
   <link rel="icon" href="favicon.4c744.ico"/>
 </head>
@@ -19,147 +85,102 @@
   </div>
   <div id="LOADING"><div id="RING"></div></div>
 
-<!-- =================== Parse SDK أولاً =================== -->
-<script src="https://cdn.jsdelivr.net/npm/parse@latest/dist/parse.min.js"></script>
-
-<!-- =================== Parse Adapter ثانياً =================== -->
-<script src="parse-adapter-cocos.js" charset="utf-8"></script>
-
-<!-- =================== Game API ثالثاً =================== -->
-<script src="game-api-cocos.js" charset="utf-8"></script>
-
-<!-- =================== Game Settings =================== -->
 <script src="src/settings.8c7c5.js" charset="utf-8"></script>
 
-<!-- =================== Game Bootstrap =================== -->
+<!-- Parse SDK (for Cloud functions) -->
+<script src="https://cdn.jsdelivr.net/npm/parse@latest/dist/parse.min.js"></script>
+
+<!-- Bridge adapter: remap /v1/football/* XHR calls to Parse.Cloud.run functions -->
+<script>
+  (function(){
+    try{
+      Parse.initialize('m21j7n4PPpZJE5JgEtLSn4FPMP9ON8SqWOb7USUM');
+      Parse.serverURL = 'https://pg-app-g5jzte2j50e22w3t2e4zydu2eu8a1c.scalabl.cloud/1/';
+    }catch(e){console.warn('Parse init failed', e)}
+
+    const mapEndpoint = function(url, method, body){
+      if(!url) return { fn:null, params:{} };
+      if(url.indexOf('/v1/football/home') !== -1) return { fn: 'game_sc_information', params: {} };
+      if(url.indexOf('/v1/football/bet') !== -1) return { fn: 'game_bet', params: body || {} };
+      if(url.indexOf('/v1/football/bet/record') !== -1 || url.indexOf('/v1/football/reward/record') !== -1) return { fn: 'game_sc_history', params: {} };
+      if(url.indexOf('/v1/football/rank') !== -1) return { fn: 'game_sc_ranking', params: {} };
+      if(url.indexOf('/v1/football/end_page_record') !== -1) return { fn: 'game_sc_history', params: {} };
+      return { fn: null, params: {} };
+    };
+
+    const origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url){
+      this.__adapter_method = method;
+      this.__adapter_url = url;
+      return origOpen.apply(this, arguments);
+    };
+
+    const origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function(body){
+      try{
+        if(this.__adapter_url && this.__adapter_url.indexOf('/v1/football/') !== -1){
+          const mapping = mapEndpoint(this.__adapter_url, this.__adapter_method, (function(){
+            try{ return body ? JSON.parse(body) : {}; }catch(e){ return {}; }
+          })());
+
+          if(mapping.fn && typeof Parse !== 'undefined' && Parse.Cloud && Parse.Cloud.run){
+            const opts = {};
+            if(window.sessionToken) opts.sessionToken = window.sessionToken;
+            Parse.Cloud.run(mapping.fn, mapping.params, opts).then(function(res){
+              const text = JSON.stringify(res);
+              try{
+                setTimeout(function(){
+                  this.status = 200; this.readyState = 4; this.responseText = text; this.response = text;
+                  if(typeof this.onreadystatechange === 'function') this.onreadystatechange();
+                  if(typeof this.onload === 'function') this.onload();
+                }.bind(this), 0);
+              }catch(e){console.error(e)}
+            }.bind(this)).catch(function(err){
+              const errObj = { error_code: 500, message: err.message || String(err) };
+              const text = JSON.stringify(errObj);
+              setTimeout(function(){ this.status = 500; this.readyState = 4; this.responseText = text; if(typeof this.onreadystatechange === 'function') this.onreadystatechange(); if(typeof this.onerror === 'function') this.onerror(); }.bind(this),0);
+            }.bind(this));
+            return;
+          }
+        }
+      }catch(e){ console.error('Adapter error', e); }
+      return origSend.apply(this, arguments);
+    };
+  })();
+</script>
+
 <script src="main.b8da4.js" charset="utf-8"></script>
 
-<!-- =================== Game Initialization =================== -->
 <script type="text/javascript">
 (function () {
-    console.log('🎮 [Game] بدء تهيئة اللعبة...');
-
-    // قراءة المعاملات من URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionToken = urlParams.get('sessionToken');
-    
-    console.log('🔍 [Game] URL Parameters:', {
-        sessionToken: sessionToken ? 'Present' : 'Missing',
-        appId: urlParams.get('appId'),
-        serverURL: urlParams.get('serverURL')
-    });
-
-    // إعدادات Parse
-    const parseConfig = {
-      appId: urlParams.get('appId') || 'spp111424242ssdsd',
-      serverURL: urlParams.get('serverURL') || 'https://parse410.onrender.com/parse',
-      sessionToken: sessionToken
-    };
-
-    console.log('📋 [Game] Parse Config:', parseConfig);
-
-    // دالة تهيئة اللعبة
-    window.initializeParseGame = async function() {
-      try {
-        console.log('🎮 [Game] Starting game initialization...');
-        
-        // الانتظار حتى يكون Parse متاحاً
-        let parseAttempts = 0;
-        while (typeof Parse === 'undefined' && parseAttempts < 50) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          parseAttempts++;
-        }
-        
-        if (typeof Parse === 'undefined') {
-          console.error('❌ [Game] Parse SDK not loaded');
-          return;
-        }
-        
-        console.log('✅ [Game] Parse SDK loaded, initializing adapter...');
-        
-        // تهيئة Parse Adapter
-        if (typeof window.initParseGameAdapter === 'function') {
-          window.parseGameAdapter = window.initParseGameAdapter(parseConfig);
-        } else {
-          console.error('❌ [Game] initParseGameAdapter not found');
-          return;
-        }
-        
-        // الانتظار حتى يكون Adapter جاهزاً
-        let adapterAttempts = 0;
-        while ((!window.parseGameAdapter || !window.parseGameAdapter.initialized) && adapterAttempts < 50) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          adapterAttempts++;
-        }
-        
-        if (!window.parseGameAdapter || !window.parseGameAdapter.initialized) {
-          console.error('❌ [Game] Parse Adapter not initialized');
-          return;
-        }
-        
-        console.log('✅ [Game] Parse Adapter ready, initializing Game API...');
-        
-        // تهيئة Game API
-        if (typeof window.initGameAPI === 'function' && window.parseGameAdapter) {
-          window.gameAPI = window.initGameAPI(window.parseGameAdapter);
-          
-          // تهيئة اللعبة
-          const gameState = await window.gameAPI.initialize();
-          console.log('✅ [Game] Game initialized successfully');
-          console.log('💰 Balance:', gameState.balance);
-          
-          // إخفاء شاشة التحميل
-          document.getElementById('LOADING').style.display = 'none';
-        }
-        
-      } catch (e) {
-        console.error('❌ [Game] Error initializing game:', e);
-        document.getElementById('LOADING').innerHTML = 
-          '<div style="color: white; text-align: center; padding: 20px;">' +
-          'Error: ' + e.message + '</div>';
-      }
-    };
-
-    // دالة تحميل Cocos Creator
-    function loadCocosCreator() {
-      var debug = window._CCSettings.debug;
-      
-      function loadScript(moduleName, cb) {
-        function scriptLoaded() {
-          document.body.removeChild(domScript);
-          domScript.removeEventListener('load', scriptLoaded, false);
-          cb && cb();
-        }
-        var domScript = document.createElement('script');
-        domScript.async = true;
-        domScript.src = moduleName;
-        domScript.addEventListener('load', scriptLoaded, false);
-        document.body.appendChild(domScript);
-      }
-
-      loadScript(debug ? 'cocos2d-js.js' : 'cocos2d-js-min.33c54.js', function () {
-        if (CC_PHYSICS_BUILTIN || CC_PHYSICS_CANNON) {
-          loadScript(debug ? 'physics.js' : 'physics-min.js', window.boot);
-        } else {
-          window.boot();
-        }
-      });
-    }
-
-    // بدء العملية
-    setTimeout(() => {
-      window.initializeParseGame().then(() => {
-        console.log('✅ [Game] Parse initialization complete, loading Cocos Creator...');
-        loadCocosCreator();
-      }).catch(error => {
-        console.error('❌ [Game] Initialization failed:', error);
-      });
-    }, 1000);
-
     // open web debugger console
     if (typeof VConsole !== 'undefined') {
         window.vConsole = new VConsole();
     }
+
+    var debug = window._CCSettings.debug;
+
+    function loadScript (moduleName, cb) {
+      function scriptLoaded () {
+          document.body.removeChild(domScript);
+          domScript.removeEventListener('load', scriptLoaded, false);
+          cb && cb();
+      };
+      var domScript = document.createElement('script');
+      domScript.async = true;
+      domScript.src = moduleName;
+      domScript.addEventListener('load', scriptLoaded, false);
+      document.body.appendChild(domScript);
+    }
+
+    loadScript(debug ? 'cocos2d-js.js' : 'cocos2d-js-min.33c54.js', function () {
+      if (CC_PHYSICS_BUILTIN || CC_PHYSICS_CANNON) {
+        loadScript(debug ? 'physics.js' : 'physics-min.js', window.boot);
+      }
+      else {
+        window.boot();
+      }
+    });
 })();
 </script>
 </body>
