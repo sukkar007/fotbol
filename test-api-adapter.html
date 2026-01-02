@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>API Adapter Test Suite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .test-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .test-item h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .test-item p {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+        }
+        
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+        
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .result.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        
+        .result.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+        
+        .result.info {
+            background: #bee3f8;
+            color: #2c5282;
+            border: 1px solid #90cdf4;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .status-indicator.ok {
+            background: #48bb78;
+        }
+        
+        .status-indicator.error {
+            background: #f56565;
+        }
+        
+        .status-indicator.pending {
+            background: #ed8936;
+        }
+        
+        .console-output {
+            background: #1a202c;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .console-line {
+            margin: 3px 0;
+        }
+        
+        .console-info {
+            color: #63b3ed;
+        }
+        
+        .console-success {
+            color: #68d391;
+        }
+        
+        .console-error {
+            color: #fc8181;
+        }
+        
+        .console-warn {
+            color: #f6ad55;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 API Adapter Test Suite</h1>
+            <p>اختبر الاتصال بين اللعبة والخادم</p>
+        </div>
+        
+        <!-- Status Check -->
+        <div class="test-section">
+            <h2>📊 فحص الحالة</h2>
+            
+            <div class="test-item">
+                <h3>Parse SDK</h3>
+                <p>التحقق من تحميل Parse SDK</p>
+                <div class="test-buttons">
+                    <button class="btn-primary" onclick="checkParseSDK()">فحص</button>
+                </div>
+                <div id="parse-result" class="result"></div>
+            </div>
+            
+            <div class="test-item">
+                <h3>API Adapter</h3>
+                <p>التحقق من تحميل API Adapter</p>
+                <div class="test-buttons">
+                    <button class="btn-primary" onclick="checkAPIAdapter()">فحص</button>
+                </div>
+                <div id="adapter-result" class="result"></div>
+            </div>
+            
+            <div class="test-item">
+                <h3>Parse Initialization</h3>
+                <p>التحقق من تهيئة Parse</p>
+                <div class="test-buttons">
+                    <button class="btn-primary" onclick="checkParseInit()">فحص</button>
+                </div>
+                <div id="init-result" class="result"></div>
+            </div>
+        </div>
+        
+        <!-- API Endpoints Tests -->
+        <div class="test-section">
+            <h2>🔗 اختبار API Endpoints</h2>
+            
+            <div class="test-item">
+                <h3>GET /v1/football/home</h3>
+                <p>جلب معلومات اللعبة الحالية</p>
+                <div class="test-buttons">
+                    <button class="btn-success" onclick="testGetHome()">اختبار</button>
+                </div>
+                <div id="home-result" class="result"></div>
+            </div>
+            
+            <div class="test-item">
+                <h3>POST /v1/football/bet</h3>
+                <p>وضع رهان</p>
+                <div class="test-buttons">
+                    <button class="btn-success" onclick="testPostBet()">اختبار</button>
+                </div>
+                <div id="bet-result" class="result"></div>
+            </div>
+            
+            <div class="test-item">
+                <h3>GET /v1/football/rank</h3>
+                <p>جلب الترتيب</p>
+                <div class="test-buttons">
+                    <button class="btn-success" onclick="testGetRank()">اختبار</button>
+                </div>
+                <div id="rank-result" class="result"></div>
+            </div>
+            
+            <div class="test-item">
+                <h3>GET /v1/football/bet/record</h3>
+                <p>جلب سجل الرهانات</p>
+                <div class="test-buttons">
+                    <button class="btn-success" onclick="testGetBetRecord()">اختبار</button>
+                </div>
+                <div id="record-result" class="result"></div>
+            </div>
+        </div>
+        
+        <!-- Console Output -->
+        <div class="test-section">
+            <h2>📝 سجل الكونسول</h2>
+            <div class="test-buttons">
+                <button class="btn-danger" onclick="clearConsole()">مسح</button>
+            </div>
+            <div class="console-output" id="console-output"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Capture console logs
+        const consoleOutput = document.getElementById('console-output');
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+        
+        function addConsoleLog(message, type = 'log') {
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(line);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addConsoleLog(args.join(' '), 'success');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addConsoleLog(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addConsoleLog(args.join(' '), 'warn');
+        };
+        
+        console.info = function(...args) {
+            originalInfo.apply(console, args);
+            addConsoleLog(args.join(' '), 'info');
+        };
+        
+        // Test Functions
+        function checkParseSDK() {
+            const result = document.getElementById('parse-result');
+            if (typeof Parse !== 'undefined') {
+                result.className = 'result success';
+                result.innerHTML = '<span class="status-indicator ok"></span>Parse SDK محمل بنجاح ✅';
+                console.log('✅ Parse SDK محمل');
+            } else {
+                result.className = 'result error';
+                result.innerHTML = '<span class="status-indicator error"></span>Parse SDK غير محمل ❌';
+                console.error('❌ Parse SDK غير محمل');
+            }
+        }
+        
+        function checkAPIAdapter() {
+            const result = document.getElementById('adapter-result');
+            if (typeof window.APIAdapter !== 'undefined') {
+                result.className = 'result success';
+                result.innerHTML = '<span class="status-indicator ok"></span>API Adapter محمل بنجاح ✅';
+                console.log('✅ API Adapter محمل');
+            } else {
+                result.className = 'result error';
+                result.innerHTML = '<span class="status-indicator error"></span>API Adapter غير محمل ❌';
+                console.error('❌ API Adapter غير محمل');
+            }
+        }
+        
+        function checkParseInit() {
+            const result = document.getElementById('init-result');
+            try {
+                if (Parse && Parse.User && Parse.User.current) {
+                    result.className = 'result success';
+                    result.innerHTML = '<span class="status-indicator ok"></span>Parse مهيأ بنجاح ✅';
+                    console.log('✅ Parse مهيأ');
+                } else {
+                    result.className = 'result info';
+                    result.innerHTML = '<span class="status-indicator pending"></span>Parse محمل لكن لا يوجد مستخدم';
+                    console.info('ℹ️ Parse محمل لكن لا يوجد مستخدم');
+                }
+            } catch (e) {
+                result.className = 'result error';
+                result.innerHTML = '<span class="status-indicator error"></span>خطأ: ' + e.message;
+                console.error('❌ خطأ في فحص Parse:', e);
+            }
+        }
+        
+        function testGetHome() {
+            const result = document.getElementById('home-result');
+            result.className = 'result info';
+            result.innerHTML = '<span class="status-indicator pending"></span>جاري الاختبار...';
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/v1/football/home');
+            xhr.onload = function() {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    result.className = 'result success';
+                    result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    console.log('✅ اختبار GET /v1/football/home نجح');
+                } catch (e) {
+                    result.className = 'result error';
+                    result.innerHTML = '<span class="status-indicator error"></span>خطأ في تحليل البيانات: ' + e.message;
+                    console.error('❌ خطأ:', e);
+                }
+            };
+            xhr.onerror = function() {
+                result.className = 'result error';
+                result.innerHTML = '<span class="status-indicator error"></span>فشل الاتصال';
+                console.error('❌ فشل اختبار GET /v1/football/home');
+            };
+            xhr.send();
+        }
+        
+        function testPostBet() {
+            const result = document.getElementById('bet-result');
+            result.className = 'result info';
+            result.innerHTML = '<span class="status-indicator pending"></span>جاري الاختبار...';
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/v1/football/bet');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    result.className = 'result success';
+                    result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    console.log('✅ اختبار POST /v1/football/bet نجح');
+                } catch (e) {
+                    result.className = 'result error';
+                    result.innerHTML = '<span class="status-indicator error"></span>خطأ في تحليل البيانات: ' + e.message;
+                    console.error('❌ خطأ:', e);
+                }
+            };
+            xhr.onerror = function() {
+                result.className = 'result error';
+                result.innerHTML = '<span class="status-indicator error"></span>فشل الاتصال';
+                console.error('❌ فشل اختبار POST /v1/football/bet');
+            };
+            xhr.send(JSON.stringify({ teamId: 'team_a', amount: 100 }));
+        }
+        
+        function testGetRank() {
+            const result = document.getElementById('rank-result');
+            result.className = 'result info';
+            result.innerHTML = '<span class="status-indicator pending"></span>جاري الاختبار...';
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/v1/football/rank');
+            xhr.onload = function() {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    result.className = 'result success';
+                    result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    console.log('✅ اختبار GET /v1/football/rank نجح');
+                } catch (e) {
+                    result.className = 'result error';
+                    result.innerHTML = '<span class="status-indicator error"></span>خطأ في تحليل البيانات: ' + e.message;
+                    console.error('❌ خطأ:', e);
+                }
+            };
+            xhr.onerror = function() {
+                result.className = 'result error';
+                result.innerHTML = '<span class="status-indicator error"></span>فشل الاتصال';
+                console.error('❌ فشل اختبار GET /v1/football/rank');
+            };
+            xhr.send();
+        }
+        
+        function testGetBetRecord() {
+            const result = document.getElementById('record-result');
+            result.className = 'result info';
+            result.innerHTML = '<span class="status-indicator pending"></span>جاري الاختبار...';
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/v1/football/bet/record');
+            xhr.onload = function() {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    result.className = 'result success';
+                    result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    console.log('✅ اختبار GET /v1/football/bet/record نجح');
+                } catch (e) {
+                    result.className = 'result error';
+                    result.innerHTML = '<span class="status-indicator error"></span>خطأ في تحليل البيانات: ' + e.message;
+                    console.error('❌ خطأ:', e);
+                }
+            };
+            xhr.onerror = function() {
+                result.className = 'result error';
+                result.innerHTML = '<span class="status-indicator error"></span>فشل الاتصال';
+                console.error('❌ فشل اختبار GET /v1/football/bet/record');
+            };
+            xhr.send();
+        }
+        
+        function clearConsole() {
+            consoleOutput.innerHTML = '';
+            console.log('🧹 تم مسح السجل');
+        }
+        
+        // Run initial checks
+        window.addEventListener('load', function() {
+            console.log('🚀 تم تحميل صفحة الاختبار');
+            checkParseSDK();
+            checkAPIAdapter();
+            checkParseInit();
+        });
+    </script>
+</body>
+</html>
