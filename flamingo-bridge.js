@@ -222,12 +222,36 @@
     }
 
     // ==========================================
-    // اعتراض طلبات HTTP (للتوافقية مع اللعبة)
+    // اعتراض طلبات Fetch API
     // ==========================================
 
-    /**
-     * اعتراض XMLHttpRequest
-     */
+    const originalFetch = window.fetch;
+
+    window.fetch = function(resource, config) {
+        const url = typeof resource === 'string' ? resource : resource.url;
+        const method = (config && config.method) || 'GET';
+        const body = config && config.body;
+
+        // التحقق من أن الطلب موجه إلى /v1/football/
+        if (url && url.indexOf('/v1/football/') !== -1) {
+            const mapping = mapGameEndpoint(url, method, body);
+            
+            if (mapping && mapping.fn) {
+                if (FlamingoConfig.debug) {
+                    console.log(`🔄 تحويل الطلب: ${url} → ${mapping.fn}`);
+                }
+                return executeGameFunction(mapping.fn, mapping.params);
+            }
+        }
+
+        // إذا لم يكن الطلب موجهاً إلى /v1/football/، استخدم الطريقة الأصلية
+        return originalFetch.apply(this, arguments);
+    };
+
+    // ==========================================
+    // اعتراض XMLHttpRequest (للتوافقية مع الطرق القديمة)
+    // ==========================================
+
     const originalOpen = XMLHttpRequest.prototype.open;
     const originalSend = XMLHttpRequest.prototype.send;
 
@@ -245,9 +269,9 @@
                 
                 if (mapping && mapping.fn) {
                     if (FlamingoConfig.debug) {
-                        console.log(`🔄 تحويل الطلب: ${this.__url} → ${mapping.fn}`);
+                        console.log(`🔄 تحويل الطلب XHR: ${this.__url} → ${mapping.fn}`);
                     }
-                    return executeGameFunction(this, mapping.fn, mapping.params);
+                    return executeGameFunctionXHR(this, mapping.fn, mapping.params);
                 }
             }
         } catch (error) {
@@ -289,9 +313,58 @@
     }
 
     /**
-     * تنفيذ دالة اللعبة
+     * تنفيذ دالة اللعبة (Fetch API)
      */
-    function executeGameFunction(xhr, functionName, params) {
+    function executeGameFunction(functionName, params) {
+        let promise;
+
+        switch (functionName) {
+            case 'getGameInfo':
+                promise = getGameInfo();
+                break;
+            case 'placeBet':
+                promise = placeBet(params.choice || params.teamId, params.gold || params.amount);
+                break;
+            case 'getGameBill':
+                promise = getGameBill();
+                break;
+            case 'getGameRank':
+                promise = getGameRank();
+                break;
+            default:
+                promise = Promise.reject(new Error(`دالة غير معروفة: ${functionName}`));
+        }
+
+        return promise
+            .then(result => {
+                return new Response(JSON.stringify(result), {
+                    status: 200,
+                    statusText: 'OK',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+            })
+            .catch(error => {
+                const errorObj = {
+                    code: 500,
+                    message: error.message || String(error),
+                    error: 'FLAMINGO_ERROR'
+                };
+                return new Response(JSON.stringify(errorObj), {
+                    status: 500,
+                    statusText: 'Internal Server Error',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+            });
+    }
+
+    /**
+     * تنفيذ دالة اللعبة (XMLHttpRequest)
+     */
+    function executeGameFunctionXHR(xhr, functionName, params) {
         let promise;
 
         switch (functionName) {
@@ -322,15 +395,36 @@
 
     /**
      * محاكاة استجابة XHR ناجحة
+     * نستخدم Object.defineProperty لتجنب خطأ "Cannot set property"
      */
     function simulateXHRSuccess(xhr, data) {
         try {
             const responseText = JSON.stringify(data);
             
-            xhr.status = 200;
-            xhr.readyState = 4;
-            xhr.responseText = responseText;
-            xhr.response = responseText;
+            // استخدام Object.defineProperty لتعيين الخصائص المحمية
+            Object.defineProperty(xhr, 'status', {
+                value: 200,
+                writable: false,
+                configurable: true
+            });
+
+            Object.defineProperty(xhr, 'readyState', {
+                value: 4,
+                writable: false,
+                configurable: true
+            });
+
+            Object.defineProperty(xhr, 'responseText', {
+                value: responseText,
+                writable: false,
+                configurable: true
+            });
+
+            Object.defineProperty(xhr, 'response', {
+                value: responseText,
+                writable: false,
+                configurable: true
+            });
 
             setTimeout(() => {
                 if (typeof xhr.onreadystatechange === 'function') {
@@ -357,10 +451,29 @@
             };
             const responseText = JSON.stringify(errorObj);
 
-            xhr.status = 500;
-            xhr.readyState = 4;
-            xhr.responseText = responseText;
-            xhr.response = responseText;
+            Object.defineProperty(xhr, 'status', {
+                value: 500,
+                writable: false,
+                configurable: true
+            });
+
+            Object.defineProperty(xhr, 'readyState', {
+                value: 4,
+                writable: false,
+                configurable: true
+            });
+
+            Object.defineProperty(xhr, 'responseText', {
+                value: responseText,
+                writable: false,
+                configurable: true
+            });
+
+            Object.defineProperty(xhr, 'response', {
+                value: responseText,
+                writable: false,
+                configurable: true
+            });
 
             setTimeout(() => {
                 if (typeof xhr.onreadystatechange === 'function') {
