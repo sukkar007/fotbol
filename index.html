@@ -90,62 +90,20 @@
 <!-- Parse SDK (for Cloud functions) -->
 <script src="https://cdn.jsdelivr.net/npm/parse@latest/dist/parse.min.js"></script>
 
+<!-- 🔧 API Adapter - يحول /v1/football/* إلى Parse Cloud Functions -->
+<script src="api-adapter.js" charset="utf-8"></script>
+
 <!-- Bridge adapter: remap /v1/football/* XHR calls to Parse.Cloud.run functions -->
 <script>
   (function(){
     try{
+      console.log('🔧 تهيئة Parse...');
       Parse.initialize('m21j7n4PPpZJE5JgEtLSn4FPMP9ON8SqWOb7USUM');
       Parse.serverURL = 'https://pg-app-g5jzte2j50e22w3t2e4zydu2eu8a1c.scalabl.cloud/1/';
-    }catch(e){console.warn('Parse init failed', e)}
-
-    const mapEndpoint = function(url, method, body){
-      if(!url) return { fn:null, params:{} };
-      if(url.indexOf('/v1/football/home') !== -1) return { fn: 'game_sc_information', params: {} };
-      if(url.indexOf('/v1/football/bet') !== -1) return { fn: 'game_bet', params: body || {} };
-      if(url.indexOf('/v1/football/bet/record') !== -1 || url.indexOf('/v1/football/reward/record') !== -1) return { fn: 'game_sc_history', params: {} };
-      if(url.indexOf('/v1/football/rank') !== -1) return { fn: 'game_sc_ranking', params: {} };
-      if(url.indexOf('/v1/football/end_page_record') !== -1) return { fn: 'game_sc_history', params: {} };
-      return { fn: null, params: {} };
-    };
-
-    const origOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function(method, url){
-      this.__adapter_method = method;
-      this.__adapter_url = url;
-      return origOpen.apply(this, arguments);
-    };
-
-    const origSend = XMLHttpRequest.prototype.send;
-    XMLHttpRequest.prototype.send = function(body){
-      try{
-        if(this.__adapter_url && this.__adapter_url.indexOf('/v1/football/') !== -1){
-          const mapping = mapEndpoint(this.__adapter_url, this.__adapter_method, (function(){
-            try{ return body ? JSON.parse(body) : {}; }catch(e){ return {}; }
-          })());
-
-          if(mapping.fn && typeof Parse !== 'undefined' && Parse.Cloud && Parse.Cloud.run){
-            const opts = {};
-            if(window.sessionToken) opts.sessionToken = window.sessionToken;
-            Parse.Cloud.run(mapping.fn, mapping.params, opts).then(function(res){
-              const text = JSON.stringify(res);
-              try{
-                setTimeout(function(){
-                  this.status = 200; this.readyState = 4; this.responseText = text; this.response = text;
-                  if(typeof this.onreadystatechange === 'function') this.onreadystatechange();
-                  if(typeof this.onload === 'function') this.onload();
-                }.bind(this), 0);
-              }catch(e){console.error(e)}
-            }.bind(this)).catch(function(err){
-              const errObj = { error_code: 500, message: err.message || String(err) };
-              const text = JSON.stringify(errObj);
-              setTimeout(function(){ this.status = 500; this.readyState = 4; this.responseText = text; if(typeof this.onreadystatechange === 'function') this.onreadystatechange(); if(typeof this.onerror === 'function') this.onerror(); }.bind(this),0);
-            }.bind(this));
-            return;
-          }
-        }
-      }catch(e){ console.error('Adapter error', e); }
-      return origSend.apply(this, arguments);
-    };
+      console.log('✅ Parse تم تهيئته بنجاح');
+    }catch(e){
+      console.warn('⚠️ Parse init failed', e);
+    }
   })();
 </script>
 
