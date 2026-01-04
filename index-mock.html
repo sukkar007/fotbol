@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Soccer/Dice Game - Mock Mode</title>
+  <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="renderer" content="webkit"/>
+  <meta name="force-rendering" content="webkit"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <meta name="msapplication-tap-highlight" content="no">
+  <meta name="full-screen" content="yes"/>
+  <meta name="x5-fullscreen" content="true"/>
+  <meta name="360-fullscreen" content="true"/>
+  <meta name="screen-orientation" content="portrait"/>
+  <meta name="x5-orientation" content="portrait">
+  <meta name="x5-page-mode" content="app">
+  <style>
+    body { margin: 0; padding: 0; background: #000; }
+    #splash { display: none; }
+    #LOADING { top: 0px; left: 0px; width: 100%; height: 100%; position: absolute; background-color: rgba(0, 0, 0, 0.618); }
+    #RING { top: 50%; left: 50%; width: 45px; height: 45px; border: 2px solid #FFFFFF; position: relative; border-top-color: transparent; border-radius: 100%; transform: translate(-50%, -50%); animation: circle 0.75s infinite linear; }
+    @keyframes circle { 0% { transform: translate(-50%, -50%) rotate(0); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+    #ERROR_CONTAINER { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 10000; color: #fff; padding: 20px; box-sizing: border-box; overflow: auto; font-family: monospace; font-size: 12px; }
+    #ERROR_CONTAINER h2 { color: #ff6b6b; margin-top: 0; }
+    #ERROR_CONTAINER .error-message { background-color: rgba(255, 107, 107, 0.1); border-left: 3px solid #ff6b6b; padding: 10px; margin: 10px 0; }
+    #MOCK_INFO { position: fixed; bottom: 10px; left: 10px; background: rgba(0, 0, 0, 0.8); color: #0f0; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; z-index: 9999; max-width: 300px; }
+    .mock-status { color: #0f0; }
+    .mock-warning { color: #ff0; }
+  </style>
+  <link rel="stylesheet" type="text/css" href="style-mobile.5b777.css"/>
+  <link rel="icon" href="favicon.4c744.ico"/>
+</head>
+<body>
+  <canvas id="GameCanvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
+  <div id="splash">
+    <div class="progress-bar stripes">
+      <span style="width: 0%"></span>
+    </div>
+  </div>
+  <div id="LOADING"><div id="RING"></div></div>
+  <div id="ERROR_CONTAINER">
+    <h2>🔴 خطأ في تحميل اللعبة</h2>
+    <div id="ERROR_MESSAGE"></div>
+  </div>
+  <div id="MOCK_INFO">
+    <div class="mock-status">🎮 Mock Mode</div>
+    <div class="mock-warning">⚠️ بيانات وهمية</div>
+    <div style="margin-top: 5px; font-size: 10px;">
+      <div>الرصيد: <span id="mock-balance">10000</span></div>
+      <div>الرهانات: <span id="mock-bets">0</span></div>
+    </div>
+  </div>
+
+<script src="mock-data.js" charset="utf-8"></script>
+<script src="src/settings.8c7c5.js" charset="utf-8"></script>
+<script src="flamingo-bridge-mock.js" charset="utf-8"></script>
+<script src="main.b8da4.js" charset="utf-8"></script>
+
+<script type="text/javascript">
+(function () {
+    console.log('📦 بدء تحميل اللعبة (Mock Mode)...');
+    
+    const loadedFiles = {
+        'mock-data.js': false,
+        'settings.8c7c5.js': false,
+        'flamingo-bridge-mock.js': false,
+        'main.b8da4.js': false,
+        'cocos2d-js-min.33c54.js': false
+    };
+
+    function updateMockInfo() {
+        if (window.MockData) {
+            document.getElementById('mock-balance').textContent = window.MockData.playerData.balance;
+            document.getElementById('mock-bets').textContent = window.MockData.playerData.totalBets;
+        }
+    }
+
+    setInterval(updateMockInfo, 1000);
+
+    window.addEventListener('error', function(event) {
+        console.error('❌ خطأ عام:', event.error);
+        if (event.error && event.error.message) {
+            const errorMsg = event.error.message;
+            if (errorMsg.includes('701') || errorMsg.includes('Link Error')) {
+                console.error('🔴 خطأ Link Error: 701');
+                showError('خطأ في تحميل اللعبة (701)', 'فشل تحميل أحد modules اللعبة.');
+                return;
+            }
+        }
+        showError('خطأ عام', event.error ? event.error.message : 'خطأ غير معروف');
+    });
+
+    window.addEventListener('unhandledrejection', function(event) {
+        console.error('❌ Promise rejection:', event.reason);
+        showError('خطأ في العملية', event.reason ? event.reason.message : 'خطأ غير معروف');
+    });
+
+    function showError(title, message) {
+        const container = document.getElementById('ERROR_CONTAINER');
+        const messageDiv = document.getElementById('ERROR_MESSAGE');
+        messageDiv.innerHTML = '<div class="error-message"><strong>' + title + '</strong><br/>' + message + '</div>';
+        container.style.display = 'block';
+        document.getElementById('LOADING').style.display = 'none';
+    }
+
+    function markFileLoaded(filename) {
+        if (loadedFiles.hasOwnProperty(filename)) {
+            loadedFiles[filename] = true;
+            console.log('✅ تم تحميل: ' + filename);
+        }
+    }
+
+    markFileLoaded('mock-data.js');
+    markFileLoaded('settings.8c7c5.js');
+    markFileLoaded('flamingo-bridge-mock.js');
+    markFileLoaded('main.b8da4.js');
+
+    if (typeof VConsole !== 'undefined') {
+        window.vConsole = new VConsole();
+    }
+
+    var debug = window._CCSettings.debug;
+
+    function loadScript (moduleName, cb) {
+      function scriptLoaded () {
+          document.body.removeChild(domScript);
+          domScript.removeEventListener('load', scriptLoaded, false);
+          domScript.removeEventListener('error', scriptError, false);
+          const filename = moduleName.split('/').pop();
+          markFileLoaded(filename);
+          cb && cb();
+      };
+      
+      function scriptError() {
+          document.body.removeChild(domScript);
+          domScript.removeEventListener('load', scriptLoaded, false);
+          domScript.removeEventListener('error', scriptError, false);
+          console.error('❌ فشل تحميل: ' + moduleName);
+          showError('خطأ في تحميل الملف', 'فشل تحميل الملف: ' + moduleName);
+      }
+      
+      var domScript = document.createElement('script');
+      domScript.async = true;
+      domScript.src = moduleName;
+      domScript.addEventListener('load', scriptLoaded, false);
+      domScript.addEventListener('error', scriptError, false);
+      document.body.appendChild(domScript);
+    }
+
+    loadScript(debug ? 'cocos2d-js.js' : 'cocos2d-js-min.33c54.js', function () {
+      if (CC_PHYSICS_BUILTIN || CC_PHYSICS_CANNON) {
+        loadScript(debug ? 'physics.js' : 'physics-min.js', window.boot);
+      }
+      else {
+        window.boot();
+      }
+    });
+})();
+</script>
+</body>
+</html>
