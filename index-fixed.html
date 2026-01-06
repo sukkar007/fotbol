@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Soccer/Dice Game</title>
+  <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="renderer" content="webkit"/>
+  <meta name="force-rendering" content="webkit"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <meta name="msapplication-tap-highlight" content="no">
+  <meta name="full-screen" content="yes"/>
+  <meta name="x5-fullscreen" content="true"/>
+  <meta name="360-fullscreen" content="true"/>
+  <meta name="screen-orientation" content="portrait"/>
+  <meta name="x5-orientation" content="portrait">
+  <meta name="x5-page-mode" content="app">
+  <style>
+    #splash { display: none; }
+    #LOADING { top: 0px; left: 0px; width: 100%; height: 100%; position: absolute; background-color: rgba(0, 0, 0, 0.618); }
+    #RING { top: 50%; left: 50%; width: 45px; height: 45px; border: 2px solid #FFFFFF; position: relative; border-top-color: transparent; border-radius: 100%; transform: translate(-50%, -50%); animation: circle 0.75s infinite linear; }
+    @keyframes circle { 0% { transform: translate(-50%, -50%) rotate(0); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+    #ERROR_CONTAINER { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); z-index: 10000; color: #fff; padding: 20px; box-sizing: border-box; overflow: auto; font-family: monospace; font-size: 12px; }
+    #ERROR_CONTAINER h2 { color: #ff6b6b; margin-top: 0; }
+    #ERROR_CONTAINER .error-message { background-color: rgba(255, 107, 107, 0.1); border-left: 3px solid #ff6b6b; padding: 10px; margin: 10px 0; }
+    #ERROR_CONTAINER .retry-btn { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+    #ERROR_CONTAINER .retry-btn:hover { background-color: #45a049; }
+    #DEBUG_INFO { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: #0f0; padding: 10px; font-size: 10px; max-width: 300px; max-height: 200px; overflow: auto; border-radius: 5px; }
+  </style>
+  <link rel="stylesheet" type="text/css" href="style-mobile.5b777.css"/>
+  <link rel="icon" href="favicon.4c744.ico"/>
+</head>
+<body>
+  <canvas id="GameCanvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
+  <div id="splash">
+    <div class="progress-bar stripes">
+      <span style="width: 0%"></span>
+    </div>
+  </div>
+  <div id="LOADING"><div id="RING"></div></div>
+  <div id="ERROR_CONTAINER">
+    <h2>🔴 خطأ في تحميل اللعبة</h2>
+    <div id="ERROR_MESSAGE"></div>
+    <button class="retry-btn" onclick="location.reload()">إعادة المحاولة</button>
+  </div>
+  <div id="DEBUG_INFO"></div>
+
+<script src="src/settings.8c7c5.js" charset="utf-8"></script>
+<script src="bundle-loader.js" charset="utf-8"></script>
+<script src="flamingo-bridge.js" charset="utf-8"></script>
+<script src="main.b8da4.js" charset="utf-8"></script>
+
+<script type="text/javascript">
+(function () {
+    console.log('📦 بدء تحميل اللعبة...');
+    
+    const DEBUG_MODE = true;
+    const loadedFiles = {
+        'settings.8c7c5.js': false,
+        'flamingo-bridge.js': false,
+        'main.b8da4.js': false,
+        'cocos2d-js-min.33c54.js': false
+    };
+    
+    const loadLog = [];
+
+    function addLog(message) {
+        loadLog.push('[' + new Date().toLocaleTimeString() + '] ' + message);
+        console.log(message);
+        if (DEBUG_MODE) {
+            const debugDiv = document.getElementById('DEBUG_INFO');
+            if (debugDiv) {
+                debugDiv.innerHTML = loadLog.slice(-20).join('<br/>');
+            }
+        }
+    }
+
+    // معالج الأخطاء العام
+    window.addEventListener('error', function(event) {
+        addLog('❌ خطأ عام: ' + (event.error ? event.error.message : 'خطأ غير معروف'));
+        
+        if (event.error && event.error.message) {
+            const errorMsg = event.error.message;
+            if (errorMsg.includes('701') || errorMsg.includes('Link Error')) {
+                addLog('🔴 خطأ Link Error: 701 - فشل تحميل module');
+                showError('خطأ في تحميل اللعبة (701)', 'فشل تحميل أحد modules اللعبة.<br/>يرجى التأكد من أن جميع الملفات موجودة بشكل صحيح.');
+                return;
+            }
+        }
+        showError('خطأ عام', event.error ? event.error.message : 'خطأ غير معروف');
+    });
+
+    // معالج Promise rejections
+    window.addEventListener('unhandledrejection', function(event) {
+        addLog('❌ Promise rejection: ' + (event.reason ? event.reason.message : 'خطأ غير معروف'));
+        showError('خطأ في العملية', event.reason ? event.reason.message : 'خطأ غير معروف');
+    });
+
+    function showError(title, message) {
+        const container = document.getElementById('ERROR_CONTAINER');
+        const messageDiv = document.getElementById('ERROR_MESSAGE');
+        messageDiv.innerHTML = '<div class="error-message"><strong>' + title + '</strong><br/>' + message + '</div>';
+        container.style.display = 'block';
+        document.getElementById('LOADING').style.display = 'none';
+    }
+
+    function markFileLoaded(filename) {
+        if (loadedFiles.hasOwnProperty(filename)) {
+            loadedFiles[filename] = true;
+            addLog('✅ تم تحميل: ' + filename);
+        }
+    }
+
+    // تحديد الملفات المحملة مسبقاً
+    markFileLoaded('settings.8c7c5.js');
+    markFileLoaded('flamingo-bridge.js');
+    markFileLoaded('main.b8da4.js');
+
+    // تهيئة VConsole إذا كانت موجودة
+    if (typeof VConsole !== 'undefined') {
+        window.vConsole = new VConsole();
+        addLog('✅ VConsole تم تفعيلها');
+    }
+
+    // التحقق من الإعدادات
+    if (!window._CCSettings) {
+        addLog('❌ خطأ: لم يتم تحميل الإعدادات');
+        showError('خطأ في الإعدادات', 'لم يتم تحميل ملف الإعدادات بشكل صحيح');
+        throw new Error('_CCSettings not loaded');
+    }
+
+    var debug = window._CCSettings.debug;
+    addLog('📋 الإعدادات: ' + JSON.stringify({
+        platform: window._CCSettings.platform,
+        orientation: window._CCSettings.orientation,
+        bundleVers: window._CCSettings.bundleVers
+    }));
+
+    function loadScript (moduleName, cb) {
+      function scriptLoaded () {
+          try {
+              document.body.removeChild(domScript);
+          } catch(e) {}
+          domScript.removeEventListener('load', scriptLoaded, false);
+          domScript.removeEventListener('error', scriptError, false);
+          const filename = moduleName.split('/').pop();
+          markFileLoaded(filename);
+          addLog('✅ تم تحميل السكريبت: ' + moduleName);
+          cb && cb();
+      };
+      
+      function scriptError() {
+          try {
+              document.body.removeChild(domScript);
+          } catch(e) {}
+          domScript.removeEventListener('load', scriptLoaded, false);
+          domScript.removeEventListener('error', scriptError, false);
+          addLog('❌ فشل تحميل: ' + moduleName);
+          showError('خطأ في تحميل الملف', 'فشل تحميل الملف: ' + moduleName + '<br/>تأكد من وجود الملف في المسار الصحيح.');
+      }
+      
+      var domScript = document.createElement('script');
+      domScript.async = true;
+      domScript.src = moduleName;
+      domScript.charset = 'utf-8';
+      domScript.addEventListener('load', scriptLoaded, false);
+      domScript.addEventListener('error', scriptError, false);
+      addLog('📥 جاري تحميل: ' + moduleName);
+      document.body.appendChild(domScript);
+    }
+
+    // تحميل محرك Cocos
+    addLog('🎮 جاري تحميل محرك Cocos...');
+    loadScript(debug ? 'cocos2d-js.js' : 'cocos2d-js-min.33c54.js', function () {
+      addLog('✅ تم تحميل محرك Cocos');
+      
+      // التحقق من وجود الفيزياء
+      if (typeof CC_PHYSICS_BUILTIN !== 'undefined' || typeof CC_PHYSICS_CANNON !== 'undefined') {
+        addLog('📦 جاري تحميل مكتبة الفيزياء...');
+        loadScript(debug ? 'physics.js' : 'physics-min.js', function() {
+          addLog('✅ تم تحميل الفيزياء');
+          if (typeof window.boot === 'function') {
+            addLog('🚀 بدء اللعبة...');
+            window.boot();
+          } else {
+            addLog('❌ خطأ: دالة boot غير موجودة');
+            showError('خطأ في البدء', 'لم يتم العثور على دالة البدء');
+          }
+        });
+      }
+      else {
+        if (typeof window.boot === 'function') {
+          addLog('🚀 بدء اللعبة...');
+          window.boot();
+        } else {
+          addLog('❌ خطأ: دالة boot غير موجودة');
+          showError('خطأ في البدء', 'لم يتم العثور على دالة البدء');
+        }
+      }
+    });
+
+    // معالج إضافي للأخطاء في تحميل الموارد
+    if (window.addEventListener) {
+        window.addEventListener('load', function() {
+            addLog('✅ تم تحميل جميع الموارد');
+        });
+    }
+})();
+</script>
+</body>
+</html>
